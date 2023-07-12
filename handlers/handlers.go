@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"time"
 
 	"win_events/models"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -70,18 +73,62 @@ func (h *Handler) CreateEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
+func isEmptyValue(v interface{}) bool {
+	switch x := v.(type) {
+	case string:
+		return x == ""
+	case int:
+		return x == 0
+	case []string:
+		return len(x) == 0
+	case time.Time:
+		return x.IsZero()
+	default:
+		return false
+	}
+}
+
 func (h *Handler) UpdateEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	var event models.Event
-	_ = json.NewDecoder(r.Body).Decode(&event)
+	err := json.NewDecoder(r.Body).Decode(&event)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	params := mux.Vars(r)
+	idStr, ok := params["id"]
+	if !ok {
+		http.Error(w, "Missing or invalid _id field", http.StatusBadRequest)
+		return
+	}
+
+	id, _ := primitive.ObjectIDFromHex(idStr)
+
+	update := bson.M{}
+	structValue := reflect.ValueOf(event)
+	typeOfEvent := structValue.Type()
+
+	for i := 0; i < structValue.NumField(); i++ {
+		fieldName := typeOfEvent.Field(i).Name
+		fieldValue := structValue.Field(i).Interface()
+		if !isEmptyValue(fieldValue) {
+			update[fieldName] = fieldValue
+		}
+	}
+
 	collection := h.Client.Database("win_events_db").Collection("events")
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	result, _ := collection.UpdateOne(
+	result, err := collection.UpdateOne(
 		ctx,
-		bson.M{"_id": event.ID},
-		bson.D{
-			{"$set", bson.D{{"title", event.Title}}},
-		},
+		bson.M{"_id": id},
+		bson.D{{"$set", update}},
 	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	json.NewEncoder(w).Encode(result)
 }
 
