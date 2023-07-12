@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"reflect"
 	"time"
 
 	"win_events/models"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -90,45 +88,16 @@ func isEmptyValue(v interface{}) bool {
 
 func (h *Handler) UpdateEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	var event models.Event
-	err := json.NewDecoder(r.Body).Decode(&event)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	params := mux.Vars(r)
-	idStr, ok := params["id"]
-	if !ok {
-		http.Error(w, "Missing or invalid _id field", http.StatusBadRequest)
-		return
-	}
-
-	id, _ := primitive.ObjectIDFromHex(idStr)
-
-	update := bson.M{}
-	structValue := reflect.ValueOf(event)
-	typeOfEvent := structValue.Type()
-
-	for i := 0; i < structValue.NumField(); i++ {
-		fieldName := typeOfEvent.Field(i).Name
-		fieldValue := structValue.Field(i).Interface()
-		if !isEmptyValue(fieldValue) {
-			update[fieldName] = fieldValue
-		}
-	}
-
+	_ = json.NewDecoder(r.Body).Decode(&event)
 	collection := h.Client.Database("win_events_db").Collection("events")
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	result, err := collection.UpdateOne(
+	result, _ := collection.UpdateOne(
 		ctx,
-		bson.M{"_id": id},
-		bson.D{{"$set", update}},
+		bson.M{"_id": event.ID},
+		bson.D{
+			{"$set", bson.D{{"title", event.Title}}},
+		},
 	)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	json.NewEncoder(w).Encode(result)
 }
 
@@ -184,4 +153,45 @@ func GenerateJWT(email string) (string, error) {
 	}
 
 	return tokenString, nil
+}
+
+func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+	query := bson.M{}
+
+	params := r.URL.Query()
+	for key, values := range params {
+		switch key {
+		case "title":
+			query["title"] = bson.M{"$regex": primitive.Regex{Pattern: values[0], Options: "i"}}
+		case "organiser":
+			query["organiser"] = bson.M{"$regex": primitive.Regex{Pattern: values[0], Options: "i"}}
+		case "location":
+			query["location"] = bson.M{"$regex": primitive.Regex{Pattern: values[0], Options: "i"}}
+		case "type":
+			query["type"] = bson.M{"$regex": primitive.Regex{Pattern: values[0], Options: "i"}}
+		}
+	}
+
+	collection := h.Client.Database("win_events_db").Collection("events")
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	cur, _ := collection.Find(ctx, query)
+
+	var events []models.Event
+	for cur.Next(ctx) {
+		var result models.Event
+		err := cur.Decode(&result)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		events = append(events, result)
+	}
+
+	if err := cur.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	cur.Close(ctx)
+	json.NewEncoder(w).Encode(events)
 }

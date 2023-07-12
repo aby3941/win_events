@@ -34,6 +34,7 @@ func main() {
 	r.HandleFunc("", handler.GetAllEventsEndpoint).Methods("GET")
 	r.HandleFunc("/{id}", handler.UpdateEventEndpoint).Methods("PUT")
 	r.HandleFunc("/{id}", handler.DeleteEventEndpoint).Methods("DELETE")
+	r.HandleFunc("/search", handler.SearchEventsEndpoint).Methods("GET")
 
 	http.ListenAndServe(":12345", router)
 }
