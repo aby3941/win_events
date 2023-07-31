@@ -10,6 +10,7 @@ import (
 	"win_events/middleware"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -57,5 +58,14 @@ func main() {
 	r.HandleFunc("/{id}", handler.DeleteEventEndpoint).Methods("DELETE")
 	r.HandleFunc("/search", handler.SearchOrganiserEventsEndpoint).Methods("GET")
 
-	http.ListenAndServe(":9000", router)
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedMethods:   []string{"*"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+		Debug:            true,
+	})
+
+	corsHandler := c.Handler(router)
+	http.ListenAndServe(":9000", corsHandler)
 }
