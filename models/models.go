@@ -8,11 +8,11 @@ type User struct {
 	ID                  primitive.ObjectID   `bson:"_id,omitempty"`
 	FirstName           string               `bson:"first_name"`
 	LastName            string               `bson:"last_name"`
-	ProfilePhoto        string               `bson:"profile_photo"`
+	ProfilePhoto        []byte               `bson:"profile_photo"`
 	Email               string               `bson:"email"`
 	Password            string               `bson:"password"` // This should be hashed, not plain text
 	PhoneNum            string               `bson:"phone_num"`
-	FavouriteOrganisers []string             `bson:"favourite_organisers"`
+	FavouriteOrganisers []primitive.ObjectID `bson:"favourite_organisers"`
 	SavedEvents         []primitive.ObjectID `bson:"saved_events"`
 }
 
@@ -20,7 +20,7 @@ type Organiser struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty"`
 	Name           string             `bson:"name"`
 	Type           string             `bson:"type"` // Society or Department
-	Logo           string             `bson:"logo"`
+	Logo           []byte             `bson:"logo"`
 	Description    string             `bson:"description"`
 	Email          string             `bson:"email"`
 	Password       string             `bson:"password"` // This should be hashed, not plain text
@@ -33,9 +33,9 @@ type Event struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"`
 	Title       string             `bson:"title"`
 	URL         string             `bson:"url"` // Event URL/Webpage
-	Photo       string             `bson:"photo"`
+	Photo       []byte             `bson:"photo"`
 	Description string             `bson:"description"`
-	Organiser   string             `bson:"organiser"`
+	Organiser   primitive.ObjectID `bson:"organiser"`
 	Location    string             `bson:"location"`
 	Time        string             `bson:"time"`
 	Type        string             `bson:"type"`

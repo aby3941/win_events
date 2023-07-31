@@ -35,6 +35,17 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
+func (h *Handler) CreateOrganiser(w http.ResponseWriter, r *http.Request) {
+	var user models.Organiser
+	_ = json.NewDecoder(r.Body).Decode(&user)
+	hashedPassword, _ := HashPassword(user.Password)
+	user.Password = hashedPassword
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	result, _ := collection.InsertOne(ctx, user)
+	json.NewEncoder(w).Encode(result)
+}
+
 func (h *Handler) AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 	var creds Credentials
 	_ = json.NewDecoder(r.Body).Decode(&creds)
@@ -62,59 +73,236 @@ func (h *Handler) AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
+func (h *Handler) AuthenticateOrganiser(w http.ResponseWriter, r *http.Request) {
+	var creds Credentials
+	_ = json.NewDecoder(r.Body).Decode(&creds)
+
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	var user models.Organiser
+	err := collection.FindOne(context.Background(), bson.M{"email": creds.Email}).Decode(&user)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusNotFound)
+		return
+	}
+
+	if !CheckPasswordHash(creds.Password, user.Password) {
+		http.Error(w, "Invalid password", http.StatusUnauthorized)
+		return
+	}
+
+	token, err := GenerateJWT(creds.Email)
+	if err != nil {
+		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+
 func (h *Handler) CreateEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	var event models.Event
 	_ = json.NewDecoder(r.Body).Decode(&event)
-	collection := h.Client.Database("win_events_db").Collection("events")
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var requestedOrganizer models.Organiser
+
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	err := collection.FindOne(context.Background(), bson.M{"_id": event.Organiser}).Decode(&requestedOrganizer)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusUnauthorized)
+		return
+	}
+	if userEmail != requestedOrganizer.Email {
+		http.Error(w, "Logged-in user is not authorized to create this event", http.StatusUnauthorized)
+		return
+	}
+
+	collection = h.Client.Database("win_events_db").Collection("events")
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	result, _ := collection.InsertOne(ctx, event)
 	json.NewEncoder(w).Encode(result)
 }
 
-func isEmptyValue(v interface{}) bool {
-	switch x := v.(type) {
-	case string:
-		return x == ""
-	case int:
-		return x == 0
-	case []string:
-		return len(x) == 0
-	case time.Time:
-		return x.IsZero()
-	default:
-		return false
-	}
-}
-
 func (h *Handler) UpdateEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	var event models.Event
 	_ = json.NewDecoder(r.Body).Decode(&event)
-	collection := h.Client.Database("win_events_db").Collection("events")
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var requestedOrganizer models.Organiser
+
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	err := collection.FindOne(context.Background(), bson.M{"_id": event.Organiser}).Decode(&requestedOrganizer)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusUnauthorized)
+		return
+	}
+	if userEmail != requestedOrganizer.Email {
+		http.Error(w, "Logged-in user is not authorized to edit this event", http.StatusUnauthorized)
+		return
+	}
+
+	collection = h.Client.Database("win_events_db").Collection("events")
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	result, _ := collection.UpdateOne(
-		ctx,
-		bson.M{"_id": event.ID},
-		bson.D{
-			{"$set", bson.D{{"title", event.Title}}},
-		},
-	)
+	updateFields := bson.D{}
+
+	if event.Title != "" {
+		updateFields = append(updateFields, bson.E{Key: "title", Value: event.Title})
+	}
+	if event.URL != "" {
+		updateFields = append(updateFields, bson.E{Key: "url", Value: event.URL})
+	}
+	if len(event.Photo) > 0 {
+		updateFields = append(updateFields, bson.E{Key: "photo", Value: event.Photo})
+	}
+	if event.Description != "" {
+		updateFields = append(updateFields, bson.E{Key: "description", Value: event.Description})
+	}
+	if event.Location != "" {
+		updateFields = append(updateFields, bson.E{Key: "location", Value: event.Location})
+	}
+	if event.Time != "" {
+		updateFields = append(updateFields, bson.E{Key: "time", Value: event.Time})
+	}
+	if event.Type != "" {
+		updateFields = append(updateFields, bson.E{Key: "type", Value: event.Type})
+	}
+	if event.Metadata != nil {
+		updateFields = append(updateFields, bson.E{Key: "metadata", Value: event.Metadata})
+	}
+
+	// Perform the update operation with the constructed updateFields.
+	update := bson.D{{Key: "$set", Value: updateFields}}
+	result, _ := collection.UpdateOne(ctx, bson.M{"_id": event.ID}, update)
+
+	json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) UpdateEventVisibilityEndpoint(w http.ResponseWriter, r *http.Request) {
+	var event models.Event
+	_ = json.NewDecoder(r.Body).Decode(&event)
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var requestedOrganizer models.Organiser
+
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	err := collection.FindOne(context.Background(), bson.M{"_id": event.Organiser}).Decode(&requestedOrganizer)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusUnauthorized)
+		return
+	}
+	if userEmail != requestedOrganizer.Email {
+		http.Error(w, "Logged-in user is not authorized to edit this event", http.StatusUnauthorized)
+		return
+	}
+
+	collection = h.Client.Database("win_events_db").Collection("events")
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	updateFields := bson.D{}
+
+	updateFields = append(updateFields, bson.E{Key: "is_visible", Value: event.IsVisible})
+
+	// Perform the update operation with the constructed updateFields.
+	update := bson.D{{Key: "$set", Value: updateFields}}
+	result, _ := collection.UpdateOne(ctx, bson.M{"_id": event.ID}, update)
+
 	json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) DeleteEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	var event models.Event
 	_ = json.NewDecoder(r.Body).Decode(&event)
-	collection := h.Client.Database("win_events_db").Collection("events")
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var requestedOrganizer models.Organiser
+
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	err := collection.FindOne(context.Background(), bson.M{"_id": event.Organiser}).Decode(&requestedOrganizer)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusUnauthorized)
+		return
+	}
+	if userEmail != requestedOrganizer.Email {
+		http.Error(w, "Logged-in user is not authorized to delete this event", http.StatusUnauthorized)
+		return
+	}
+
+	collection = h.Client.Database("win_events_db").Collection("events")
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	result, _ := collection.DeleteOne(ctx, bson.M{"_id": event.ID})
 	json.NewEncoder(w).Encode(result)
 }
 
-func (h *Handler) GetAllEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetAllOrganiserEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 	var events []models.Event
-	collection := h.Client.Database("win_events_db").Collection("events")
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var organiser models.Organiser
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	err := collection.FindOne(context.Background(), bson.M{"email": userEmail}).Decode(&organiser)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusUnauthorized)
+		return
+	}
+
+	collection = h.Client.Database("win_events_db").Collection("events")
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	cursor, err := collection.Find(ctx, bson.M{})
+	cursor, err := collection.Find(ctx, bson.M{"organiser": organiser.ID})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -129,6 +317,7 @@ func (h *Handler) GetAllEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
 }
 
@@ -155,7 +344,28 @@ func GenerateJWT(email string) (string, error) {
 	return tokenString, nil
 }
 
-func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) SearchOrganiserEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var organiser models.Organiser
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	err := collection.FindOne(context.Background(), bson.M{"email": userEmail}).Decode(&organiser)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusUnauthorized)
+		return
+	}
+
 	query := bson.M{}
 
 	params := r.URL.Query()
@@ -172,7 +382,7 @@ func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	collection := h.Client.Database("win_events_db").Collection("events")
+	collection = h.Client.Database("win_events_db").Collection("events")
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	cur, _ := collection.Find(ctx, query)
 
@@ -184,7 +394,9 @@ func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		events = append(events, result)
+		if result.Organiser == organiser.ID {
+			events = append(events, result)
+		}
 	}
 
 	if err := cur.Err(); err != nil {
@@ -193,5 +405,6 @@ func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cur.Close(ctx)
+
 	json.NewEncoder(w).Encode(events)
 }

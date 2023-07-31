@@ -7,11 +7,30 @@ import (
 	"time"
 
 	"win_events/handlers"
+	"win_events/middleware"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Call the next handler
+		next.ServeHTTP(w, r)
+	})
+}
 
 func main() {
 	fmt.Println("Starting the application...")
@@ -24,17 +43,19 @@ func main() {
 		Client: client,
 	}
 
-	router.HandleFunc("/users", handler.CreateUser).Methods("POST")
-	router.HandleFunc("/users/auth", handler.AuthenticateUser).Methods("POST")
+	router.Use(enableCORS)
+
+	router.HandleFunc("/organiser/signup", handler.CreateOrganiser).Methods("POST")
+	router.HandleFunc("/organiser/login", handler.AuthenticateOrganiser).Methods("POST")
 
 	// Subrouter for endpoints that require JWT auth
-	r := router.PathPrefix("/event").Subrouter()
-	// r.Use(middleware.AuthMiddleware)
+	r := router.PathPrefix("organiser/event").Subrouter()
+	r.Use(middleware.AuthMiddleware)
 	r.HandleFunc("", handler.CreateEventEndpoint).Methods("POST")
-	r.HandleFunc("", handler.GetAllEventsEndpoint).Methods("GET")
+	r.HandleFunc("", handler.GetAllOrganiserEventsEndpoint).Methods("GET")
 	r.HandleFunc("/{id}", handler.UpdateEventEndpoint).Methods("PUT")
 	r.HandleFunc("/{id}", handler.DeleteEventEndpoint).Methods("DELETE")
-	r.HandleFunc("/search", handler.SearchEventsEndpoint).Methods("GET")
+	r.HandleFunc("/search", handler.SearchOrganiserEventsEndpoint).Methods("GET")
 
-	http.ListenAndServe(":12345", router)
+	http.ListenAndServe(":9000", router)
 }
