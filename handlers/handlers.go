@@ -9,6 +9,7 @@ import (
 	"win_events/models"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -344,7 +345,7 @@ func GenerateJWT(email string) (string, error) {
 	return tokenString, nil
 }
 
-func (h *Handler) SearchOrganiserEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) FilterOrganiserEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	// Extract user information from the JWT claims
 	claims, ok := r.Context().Value("props").(jwt.MapClaims)
@@ -736,7 +737,7 @@ func (h *Handler) GetAllFavouriteOrgEventsEndpoint(w http.ResponseWriter, r *htt
 	json.NewEncoder(w).Encode(events)
 }
 
-func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) FilterEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	// Extract user information from the JWT claims
 	claims, ok := r.Context().Value("props").(jwt.MapClaims)
@@ -796,5 +797,124 @@ func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	cur.Close(ctx)
 
+	json.NewEncoder(w).Encode(events)
+}
+
+func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+	// Get the search query from the URL path parameters
+	vars := mux.Vars(r)
+	searchQuery := vars["searchQuery"]
+
+	// Create a regular expression for case-insensitive search
+	regex := primitive.Regex{Pattern: searchQuery, Options: "i"}
+
+	// Define the MongoDB filter to search for events
+	filter := bson.M{
+		"$or": bson.A{
+			bson.M{"title": regex},
+			bson.M{"description": regex},
+			bson.M{"location": regex},
+		},
+	}
+
+	// Perform the MongoDB query to find events
+	ctx := context.Background()
+	collection := h.Client.Database("win_events_db").Collection("events")
+	cur, err := collection.Find(ctx, filter)
+	if err != nil {
+		http.Error(w, "Error querying events", http.StatusInternalServerError)
+		return
+	}
+	defer cur.Close(ctx)
+
+	// Store the matched events in a slice
+	var events []models.Event
+	for cur.Next(ctx) {
+		var event models.Event
+		err := cur.Decode(&event)
+		if err != nil {
+			http.Error(w, "Error decoding events", http.StatusInternalServerError)
+			return
+		}
+		events = append(events, event)
+	}
+	if err := cur.Err(); err != nil {
+		http.Error(w, "Error iterating over events", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the matched events in JSON format
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
+func (h *Handler) SearchOrganiserEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var organiser models.Organiser
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	err := collection.FindOne(context.Background(), bson.M{"email": userEmail}).Decode(&organiser)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusUnauthorized)
+		return
+	}
+
+	// Get the search query from the URL path parameters
+	vars := mux.Vars(r)
+	searchQuery := vars["searchQuery"]
+
+	// Create a regular expression for case-insensitive search
+	regex := primitive.Regex{Pattern: searchQuery, Options: "i"}
+
+	// Define the MongoDB filter to search for events
+	filter := bson.M{
+		"$or": bson.A{
+			bson.M{"title": regex},
+			bson.M{"description": regex},
+			bson.M{"location": regex},
+		},
+	}
+
+	// Perform the MongoDB query to find events
+	ctx := context.Background()
+	collection = h.Client.Database("win_events_db").Collection("events")
+	cur, err := collection.Find(ctx, filter)
+	if err != nil {
+		http.Error(w, "Error querying events", http.StatusInternalServerError)
+		return
+	}
+	defer cur.Close(ctx)
+
+	// Store the matched events in a slice
+	var events []models.Event
+	for cur.Next(ctx) {
+		var event models.Event
+		err := cur.Decode(&event)
+		if err != nil {
+			http.Error(w, "Error decoding events", http.StatusInternalServerError)
+			return
+		}
+		if event.Organiser == organiser.ID {
+			events = append(events, event)
+		}
+		// events = append(events, event)
+	}
+	if err := cur.Err(); err != nil {
+		http.Error(w, "Error iterating over events", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the matched events in JSON format
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
 }
