@@ -174,7 +174,7 @@ func (h *Handler) UpdateEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	if event.URL != "" {
 		updateFields = append(updateFields, bson.E{Key: "url", Value: event.URL})
 	}
-	if len(event.Photo) > 0 {
+	if event.Photo != "" {
 		updateFields = append(updateFields, bson.E{Key: "photo", Value: event.Photo})
 	}
 	if event.Description != "" {
@@ -505,7 +505,7 @@ func (h *Handler) UpdateUserDetailsEndpoint(w http.ResponseWriter, r *http.Reque
 	if user.LastName != "" {
 		updateFields = append(updateFields, bson.E{Key: "last_name", Value: user.LastName})
 	}
-	if len(user.ProfilePhoto) > 0 {
+	if user.ProfilePhoto != "" {
 		updateFields = append(updateFields, bson.E{Key: "profile_photo", Value: user.ProfilePhoto})
 	}
 	if user.Password != "" {
@@ -568,7 +568,7 @@ func (h *Handler) UpdateOrganiserDetailsEndpoint(w http.ResponseWriter, r *http.
 		updateFields = append(updateFields, bson.E{Key: "description", Value: user.Description})
 	}
 
-	if len(user.Logo) > 0 {
+	if user.Logo != "" {
 		updateFields = append(updateFields, bson.E{Key: "logo", Value: user.Logo})
 	}
 	if user.Password != "" {
