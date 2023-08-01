@@ -922,3 +922,47 @@ func (h *Handler) SearchOrganiserEventsEndpoint(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
 }
+
+func (h *Handler) GetAllOrganisersEndpoint(w http.ResponseWriter, r *http.Request) {
+	var organisers []models.Organiser
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var user models.User
+	collection := h.Client.Database("win_events_db").Collection("users")
+	err := collection.FindOne(context.Background(), bson.M{"email": userEmail}).Decode(&user)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusUnauthorized)
+		return
+	}
+
+	collection = h.Client.Database("win_events_db").Collection("organisers")
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var organiser models.Organiser
+		cursor.Decode(&organiser)
+		organisers = append(organisers, organiser)
+	}
+	if err := cursor.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(organisers)
+}
