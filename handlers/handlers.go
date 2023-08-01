@@ -70,7 +70,7 @@ func (h *Handler) AuthenticateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": token})
+	json.NewEncoder(w).Encode(map[string]string{"token": token, "id": user.ID.Hex()})
 }
 
 func (h *Handler) AuthenticateOrganiser(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +97,7 @@ func (h *Handler) AuthenticateOrganiser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": token})
+	json.NewEncoder(w).Encode(map[string]string{"token": token, "id": user.ID.Hex()})
 }
 
 func (h *Handler) CreateEventEndpoint(w http.ResponseWriter, r *http.Request) {
