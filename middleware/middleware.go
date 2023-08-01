@@ -11,7 +11,7 @@ import (
 var SECRET = []byte("secret")
 
 func AuthMiddleware(next http.Handler) http.Handler {
-	fmt.Println("Inside middleware")
+	// fmt.Println("Inside middleware")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("Authorization")
 		if tokenStr == "" {
@@ -23,13 +23,11 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return SECRET, nil
 		})
 
-		fmt.Println("before first error statement")
 		if err != nil {
 			fmt.Println(err)
 			http.Error(w, "Invalid auth token", http.StatusUnauthorized)
 			return
 		}
-		fmt.Println("before second error statement")
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 			ctx := context.WithValue(r.Context(), "props", claims)
 			next.ServeHTTP(w, r.WithContext(ctx))

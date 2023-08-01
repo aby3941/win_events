@@ -787,7 +787,9 @@ func (h *Handler) FilterEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		events = append(events, result)
+		if result.IsVisible {
+			events = append(events, result)
+		}
 	}
 
 	if err := cur.Err(); err != nil {
@@ -836,7 +838,9 @@ func (h *Handler) SearchEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error decoding events", http.StatusInternalServerError)
 			return
 		}
-		events = append(events, event)
+		if event.IsVisible {
+			events = append(events, event)
+		}
 	}
 	if err := cur.Err(); err != nil {
 		http.Error(w, "Error iterating over events", http.StatusInternalServerError)
