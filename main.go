@@ -49,7 +49,7 @@ func main() {
 	router.HandleFunc("/organiser/login", handler.AuthenticateOrganiser).Methods("POST")
 
 	// Subrouter for endpoints that require JWT auth
-	r := router.PathPrefix("organiser").Subrouter()
+	r := router.PathPrefix("/organiser").Subrouter()
 	r.Use(middleware.AuthMiddleware)
 	r.HandleFunc("/event", handler.CreateEventEndpoint).Methods("POST")
 	r.HandleFunc("/event", handler.GetAllOrganiserEventsEndpoint).Methods("GET")
