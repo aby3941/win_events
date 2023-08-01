@@ -47,6 +47,8 @@ func main() {
 
 	router.HandleFunc("/organiser/signup", handler.CreateOrganiser).Methods("POST")
 	router.HandleFunc("/organiser/login", handler.AuthenticateOrganiser).Methods("POST")
+	router.HandleFunc("/user/signup", handler.CreateUser).Methods("POST")
+	router.HandleFunc("/user/login", handler.AuthenticateUser).Methods("POST")
 
 	// Subrouter for endpoints that require JWT auth
 	r := router.PathPrefix("/organiser").Subrouter()
@@ -56,6 +58,16 @@ func main() {
 	r.HandleFunc("/event/{id}", handler.UpdateEventEndpoint).Methods("PUT")
 	r.HandleFunc("/event/{id}", handler.DeleteEventEndpoint).Methods("DELETE")
 	r.HandleFunc("/event/search", handler.SearchOrganiserEventsEndpoint).Methods("GET")
-	r.HandleFunc("/details", handler.GetOrganiserDetails).Methods("GET")
+	r.HandleFunc("/details", handler.GetOrganiserDetailsEndpoint).Methods("GET")
+	r.HandleFunc("/details/{id}", handler.UpdateOrganiserDetailsEndpoint).Methods("PUT")
+
+	r_user := router.PathPrefix("/user").Subrouter()
+	r_user.Use(middleware.AuthMiddleware)
+	r_user.HandleFunc("/event", handler.GetAllEventsEndpoint).Methods("GET")
+	r_user.HandleFunc("/event/saved", handler.GetAllSavedEventsEndpoint).Methods("GET")
+	r_user.HandleFunc("/event/fav", handler.GetAllFavouriteOrgEventsEndpoint).Methods("GET")
+	r_user.HandleFunc("/event/search", handler.SearchEventsEndpoint).Methods("GET")
+	r_user.HandleFunc("/details", handler.GetUserDetailsEndpoint).Methods("GET")
+	r_user.HandleFunc("/details/{id}", handler.UpdateUserDetailsEndpoint).Methods("PUT")
 	http.ListenAndServe(":9000", router)
 }
