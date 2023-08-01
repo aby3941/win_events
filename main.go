@@ -10,7 +10,6 @@ import (
 	"win_events/middleware"
 
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -50,22 +49,13 @@ func main() {
 	router.HandleFunc("/organiser/login", handler.AuthenticateOrganiser).Methods("POST")
 
 	// Subrouter for endpoints that require JWT auth
-	r := router.PathPrefix("organiser/event").Subrouter()
+	r := router.PathPrefix("organiser").Subrouter()
 	r.Use(middleware.AuthMiddleware)
-	r.HandleFunc("", handler.CreateEventEndpoint).Methods("POST")
-	r.HandleFunc("", handler.GetAllOrganiserEventsEndpoint).Methods("GET")
-	r.HandleFunc("/{id}", handler.UpdateEventEndpoint).Methods("PUT")
-	r.HandleFunc("/{id}", handler.DeleteEventEndpoint).Methods("DELETE")
-	r.HandleFunc("/search", handler.SearchOrganiserEventsEndpoint).Methods("GET")
-
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"},
-		AllowedMethods:   []string{"*"},
-		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
-		Debug:            true,
-	})
-
-	corsHandler := c.Handler(router)
-	http.ListenAndServe(":9000", corsHandler)
+	r.HandleFunc("/event", handler.CreateEventEndpoint).Methods("POST")
+	r.HandleFunc("/event", handler.GetAllOrganiserEventsEndpoint).Methods("GET")
+	r.HandleFunc("/event/{id}", handler.UpdateEventEndpoint).Methods("PUT")
+	r.HandleFunc("/event/{id}", handler.DeleteEventEndpoint).Methods("DELETE")
+	r.HandleFunc("/event/search", handler.SearchOrganiserEventsEndpoint).Methods("GET")
+	r.HandleFunc("/details", handler.GetOrganiserDetails).Methods("GET")
+	http.ListenAndServe(":9000", router)
 }

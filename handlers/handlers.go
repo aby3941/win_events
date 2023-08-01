@@ -408,3 +408,32 @@ func (h *Handler) SearchOrganiserEventsEndpoint(w http.ResponseWriter, r *http.R
 
 	json.NewEncoder(w).Encode(events)
 }
+
+func (h *Handler) GetOrganiserDetails(w http.ResponseWriter, r *http.Request) {
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var organiser models.Organiser
+	collection := h.Client.Database("win_events_db").Collection("organisers")
+	err := collection.FindOne(context.Background(), bson.M{"email": userEmail}).Decode(&organiser)
+	if err != nil {
+		http.Error(w, "Organiser not found", http.StatusUnauthorized)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(organiser)
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
