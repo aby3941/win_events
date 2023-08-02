@@ -25,6 +25,8 @@ type Handler struct {
 	Client *mongo.Client
 }
 
+var SECRET = []byte("secret")
+
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	_ = json.NewDecoder(r.Body).Decode(&user)
@@ -337,7 +339,7 @@ func GenerateJWT(email string) (string, error) {
 		"email": email,
 	})
 
-	tokenString, err := token.SignedString([]byte("secret"))
+	tokenString, err := token.SignedString(SECRET)
 	if err != nil {
 		return "", err
 	}
