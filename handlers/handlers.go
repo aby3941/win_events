@@ -674,31 +674,32 @@ func (h *Handler) GetAllSavedEventsEndpoint(w http.ResponseWriter, r *http.Reque
 	var eventIDs []primitive.ObjectID
 	if user.SavedEvents != nil && len(user.SavedEvents) > 0 {
 		eventIDs = user.SavedEvents
-	}
-	collection = h.Client.Database("win_events_db").Collection("events")
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	filter := bson.M{
-		"_id": bson.M{
-			"$in": eventIDs,
-		},
-	}
-	cursor, err := collection.Find(ctx, filter)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var event models.Event
-		cursor.Decode(&event)
-		events = append(events, event)
-	}
-	if err := cursor.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		collection = h.Client.Database("win_events_db").Collection("events")
+		ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+		filter := bson.M{
+			"_id": bson.M{
+				"$in": eventIDs,
+			},
+		}
+		cursor, err := collection.Find(ctx, filter)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer cursor.Close(ctx)
+		for cursor.Next(ctx) {
+			var event models.Event
+			cursor.Decode(&event)
+			events = append(events, event)
+		}
+		if err := cursor.Err(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
+
 }
 
 func (h *Handler) GetAllFavouriteOrgEventsEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -726,29 +727,30 @@ func (h *Handler) GetAllFavouriteOrgEventsEndpoint(w http.ResponseWriter, r *htt
 	var organiserIDs []primitive.ObjectID
 	if user.FavouriteOrganisers != nil && len(user.FavouriteOrganisers) > 0 {
 		organiserIDs = user.FavouriteOrganisers
+		collection = h.Client.Database("win_events_db").Collection("events")
+		ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+		filter := bson.M{
+			"organiser": bson.M{
+				"$in": organiserIDs,
+			},
+		}
+		cursor, err := collection.Find(ctx, filter)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer cursor.Close(ctx)
+		for cursor.Next(ctx) {
+			var event models.Event
+			cursor.Decode(&event)
+			events = append(events, event)
+		}
+		if err := cursor.Err(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
-	collection = h.Client.Database("win_events_db").Collection("events")
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	filter := bson.M{
-		"organiser": bson.M{
-			"$in": organiserIDs,
-		},
-	}
-	cursor, err := collection.Find(ctx, filter)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var event models.Event
-		cursor.Decode(&event)
-		events = append(events, event)
-	}
-	if err := cursor.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
 }
