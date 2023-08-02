@@ -56,6 +56,7 @@ func main() {
 	r.HandleFunc("/event", handler.CreateEventEndpoint).Methods("POST")
 	r.HandleFunc("/event", handler.GetAllOrganiserEventsEndpoint).Methods("GET")
 	r.HandleFunc("/event/{id}", handler.UpdateEventEndpoint).Methods("PUT")
+	r.HandleFunc("/event/visibility/{id}", handler.UpdateEventVisibilityEndpoint).Methods("PUT")
 	r.HandleFunc("/event/{id}", handler.DeleteEventEndpoint).Methods("DELETE")
 	r.HandleFunc("/event/filter", handler.FilterOrganiserEventsEndpoint).Methods("GET")
 	r.HandleFunc("/details", handler.GetOrganiserDetailsEndpoint).Methods("GET")
