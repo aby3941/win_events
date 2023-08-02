@@ -73,5 +73,7 @@ func main() {
 	r_user.HandleFunc("/details/{id}", handler.UpdateUserDetailsEndpoint).Methods("PUT")
 	r_user.HandleFunc("/event/search/{searchQuery}", handler.SearchEventsEndpoint).Methods("GET")
 	r_user.HandleFunc("/organisers", handler.GetAllOrganisersEndpoint).Methods("GET")
+	r_user.HandleFunc("/update/event/saved", handler.UpdateSavedEventsEndpoint).Methods("PUT")
+	r_user.HandleFunc("/update/event/fav", handler.UpdateSavedEventsEndpoint).Methods("PUT")
 	http.ListenAndServe(":9000", router)
 }

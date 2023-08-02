@@ -985,3 +985,87 @@ func (h *Handler) GetAllOrganisersEndpoint(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(organisers)
 }
+
+func (h *Handler) UpdateSavedEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+	var user models.User
+	_ = json.NewDecoder(r.Body).Decode(&user)
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var requestedUser models.User
+
+	collection := h.Client.Database("win_events_db").Collection("users")
+	err := collection.FindOne(context.Background(), bson.M{"email": userEmail}).Decode(&requestedUser)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusUnauthorized)
+		return
+	}
+
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	updateFields := bson.D{}
+
+	// if user.FavouriteOrganisers != nil {
+	// 	updateFields = append(updateFields, bson.E{Key: "favourite_organisers", Value: user.FavouriteOrganisers})
+	// }
+	if user.SavedEvents != nil {
+		updateFields = append(updateFields, bson.E{Key: "saved_events", Value: user.SavedEvents})
+	}
+
+	// Perform the update operation with the constructed updateFields.
+	update := bson.D{{Key: "$set", Value: updateFields}}
+	result, _ := collection.UpdateOne(ctx, bson.M{"email": userEmail}, update)
+
+	json.NewEncoder(w).Encode(result)
+}
+
+func (h *Handler) UpdateFavouriteOrganisersEndpoint(w http.ResponseWriter, r *http.Request) {
+	var user models.User
+	_ = json.NewDecoder(r.Body).Decode(&user)
+
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+	var requestedUser models.User
+
+	collection := h.Client.Database("win_events_db").Collection("users")
+	err := collection.FindOne(context.Background(), bson.M{"email": userEmail}).Decode(&requestedUser)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusUnauthorized)
+		return
+	}
+
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	updateFields := bson.D{}
+
+	if user.FavouriteOrganisers != nil {
+		updateFields = append(updateFields, bson.E{Key: "favourite_organisers", Value: user.FavouriteOrganisers})
+	}
+	// if user.SavedEvents != nil {
+	// 	updateFields = append(updateFields, bson.E{Key: "saved_events", Value: user.SavedEvents})
+	// }
+
+	// Perform the update operation with the constructed updateFields.
+	update := bson.D{{Key: "$set", Value: updateFields}}
+	result, _ := collection.UpdateOne(ctx, bson.M{"email": userEmail}, update)
+
+	json.NewEncoder(w).Encode(result)
+}
