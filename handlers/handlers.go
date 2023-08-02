@@ -246,8 +246,17 @@ func (h *Handler) UpdateEventVisibilityEndpoint(w http.ResponseWriter, r *http.R
 }
 
 func (h *Handler) DeleteEventEndpoint(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	eventId := vars["id"]
 	var event models.Event
 	_ = json.NewDecoder(r.Body).Decode(&event)
+
+	collection := h.Client.Database("win_events_db").Collection("events")
+	err := collection.FindOne(context.Background(), bson.M{"_id": eventId}).Decode(&event)
+	if err != nil {
+		http.Error(w, "Event not found", http.StatusUnauthorized)
+		return
+	}
 
 	// Extract user information from the JWT claims
 	claims, ok := r.Context().Value("props").(jwt.MapClaims)
@@ -263,8 +272,8 @@ func (h *Handler) DeleteEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	var requestedOrganizer models.Organiser
 
-	collection := h.Client.Database("win_events_db").Collection("organisers")
-	err := collection.FindOne(context.Background(), bson.M{"_id": event.Organiser}).Decode(&requestedOrganizer)
+	collection = h.Client.Database("win_events_db").Collection("organisers")
+	err = collection.FindOne(context.Background(), bson.M{"_id": event.Organiser}).Decode(&requestedOrganizer)
 	if err != nil {
 		http.Error(w, "Organiser not found", http.StatusUnauthorized)
 		return
