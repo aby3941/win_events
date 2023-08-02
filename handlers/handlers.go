@@ -247,12 +247,17 @@ func (h *Handler) UpdateEventVisibilityEndpoint(w http.ResponseWriter, r *http.R
 
 func (h *Handler) DeleteEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["id"]
+	eventIdInString := vars["id"]
+	eventId, err := primitive.ObjectIDFromHex(eventIdInString)
+	if err != nil {
+		http.Error(w, "Event not found", http.StatusNotAcceptable)
+		return
+	}
 	var event models.Event
 	_ = json.NewDecoder(r.Body).Decode(&event)
 
 	collection := h.Client.Database("win_events_db").Collection("events")
-	err := collection.FindOne(context.Background(), bson.M{"_id": eventId}).Decode(&event)
+	err = collection.FindOne(context.Background(), bson.M{"_id": eventId}).Decode(&event)
 	if err != nil {
 		http.Error(w, "Event not found", http.StatusUnauthorized)
 		return
