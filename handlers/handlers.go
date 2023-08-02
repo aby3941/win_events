@@ -647,7 +647,10 @@ func (h *Handler) GetAllEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 	for cursor.Next(ctx) {
 		var event models.Event
 		cursor.Decode(&event)
-		events = append(events, event)
+		if event.IsVisible {
+			events = append(events, event)
+		}
+		// events = append(events, event)
 	}
 	if err := cursor.Err(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -699,7 +702,10 @@ func (h *Handler) GetAllSavedEventsEndpoint(w http.ResponseWriter, r *http.Reque
 		for cursor.Next(ctx) {
 			var event models.Event
 			cursor.Decode(&event)
-			events = append(events, event)
+			if event.IsVisible {
+				events = append(events, event)
+			}
+			// events = append(events, event)
 		}
 		if err := cursor.Err(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -752,7 +758,10 @@ func (h *Handler) GetAllFavouriteOrgEventsEndpoint(w http.ResponseWriter, r *htt
 		for cursor.Next(ctx) {
 			var event models.Event
 			cursor.Decode(&event)
-			events = append(events, event)
+			if event.IsVisible {
+				events = append(events, event)
+			}
+			// events = append(events, event)
 		}
 		if err := cursor.Err(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
