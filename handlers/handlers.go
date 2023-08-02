@@ -651,6 +651,7 @@ func (h *Handler) GetAllEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetAllSavedEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 	var events []models.Event
+	events = make([]models.Event, 0)
 
 	// Extract user information from the JWT claims
 	claims, ok := r.Context().Value("props").(jwt.MapClaims)
@@ -704,7 +705,7 @@ func (h *Handler) GetAllSavedEventsEndpoint(w http.ResponseWriter, r *http.Reque
 
 func (h *Handler) GetAllFavouriteOrgEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 	var events []models.Event
-
+	events = make([]models.Event, 0)
 	// Extract user information from the JWT claims
 	claims, ok := r.Context().Value("props").(jwt.MapClaims)
 	if !ok {
