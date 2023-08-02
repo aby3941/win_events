@@ -30,6 +30,14 @@ var SECRET = []byte("secret")
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	_ = json.NewDecoder(r.Body).Decode(&user)
+	var savedEvents []primitive.ObjectID
+	savedEvents = make([]primitive.ObjectID, 0)
+	user.SavedEvents = savedEvents
+
+	var favOrg []primitive.ObjectID
+	favOrg = make([]primitive.ObjectID, 0)
+	user.FavouriteOrganisers = favOrg
+
 	hashedPassword, _ := HashPassword(user.Password)
 	user.Password = hashedPassword
 	collection := h.Client.Database("win_events_db").Collection("users")
@@ -1145,8 +1153,17 @@ func (h *Handler) AddEventToSavedEventsEndpoint(w http.ResponseWriter, r *http.R
 	}
 
 	collection := h.Client.Database("win_events_db").Collection("users")
+	var user models.User
+	err = collection.FindOne(context.Background(), bson.M{"email": userEmail}).Decode(&user)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusUnauthorized)
+		return
+	}
+
 	filter := bson.M{"email": userEmail}
-	update := bson.M{"$addToSet": bson.M{"saved_events": eventID}}
+	update := bson.M{
+		"$addToSet": bson.M{"saved_events": eventID},
+	}
 
 	_, err = collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
