@@ -304,7 +304,7 @@ func (h *Handler) DeleteEventEndpoint(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetAllOrganiserEventsEndpoint(w http.ResponseWriter, r *http.Request) {
 	var events []models.Event
-
+	events = make([]models.Event, 0)
 	// Extract user information from the JWT claims
 	claims, ok := r.Context().Value("props").(jwt.MapClaims)
 	if !ok {
