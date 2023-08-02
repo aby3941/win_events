@@ -1069,3 +1069,139 @@ func (h *Handler) UpdateFavouriteOrganisersEndpoint(w http.ResponseWriter, r *ht
 
 	json.NewEncoder(w).Encode(result)
 }
+
+func (h *Handler) AddEventToSavedEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	eventIDStr := mux.Vars(r)["eventId"]
+	eventID, err := primitive.ObjectIDFromHex(eventIDStr)
+	if err != nil {
+		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		return
+	}
+
+	collection := h.Client.Database("win_events_db").Collection("users")
+	filter := bson.M{"email": userEmail}
+	update := bson.M{"$addToSet": bson.M{"saved_events": eventID}}
+
+	_, err = collection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) RemoveEventFromSavedEventsEndpoint(w http.ResponseWriter, r *http.Request) {
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	eventIDStr := mux.Vars(r)["eventId"]
+	eventID, err := primitive.ObjectIDFromHex(eventIDStr)
+	if err != nil {
+		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		return
+	}
+
+	collection := h.Client.Database("win_events_db").Collection("users")
+	filter := bson.M{"email": userEmail}
+	update := bson.M{"$pull": bson.M{"saved_events": eventID}}
+
+	_, err = collection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) AddOrganiserToFavOrganisersEndpoint(w http.ResponseWriter, r *http.Request) {
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	orgIdStr := mux.Vars(r)["orgId"]
+	orgID, err := primitive.ObjectIDFromHex(orgIdStr)
+	if err != nil {
+		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		return
+	}
+
+	collection := h.Client.Database("win_events_db").Collection("users")
+	filter := bson.M{"email": userEmail}
+	update := bson.M{"$addToSet": bson.M{"favourite_organisers": orgID}}
+
+	_, err = collection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) RemoveOrganiserFromFavOrganiserEndpoint(w http.ResponseWriter, r *http.Request) {
+	// Extract user information from the JWT claims
+	claims, ok := r.Context().Value("props").(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		http.Error(w, "Invalid user email in JWT claims", http.StatusUnauthorized)
+		return
+	}
+
+	orgIDStr := mux.Vars(r)["orgId"]
+	orgID, err := primitive.ObjectIDFromHex(orgIDStr)
+	if err != nil {
+		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		return
+	}
+
+	collection := h.Client.Database("win_events_db").Collection("users")
+	filter := bson.M{"email": userEmail}
+	update := bson.M{"$pull": bson.M{"favourite_organisers": orgID}}
+
+	_, err = collection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

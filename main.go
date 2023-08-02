@@ -75,5 +75,9 @@ func main() {
 	r_user.HandleFunc("/organisers", handler.GetAllOrganisersEndpoint).Methods("GET")
 	r_user.HandleFunc("/update/event/saved", handler.UpdateSavedEventsEndpoint).Methods("PUT")
 	r_user.HandleFunc("/update/event/fav", handler.UpdateSavedEventsEndpoint).Methods("PUT")
+	r_user.HandleFunc("/add/event/saved/{eventId}", handler.AddEventToSavedEventsEndpoint).Methods("PUT")
+	r_user.HandleFunc("/remove/event/saved/{eventId}", handler.RemoveEventFromSavedEventsEndpoint).Methods("PUT")
+	r_user.HandleFunc("/add/fav/org/{orgId}", handler.AddOrganiserToFavOrganisersEndpoint).Methods("PUT")
+	r_user.HandleFunc("/remove/fav/org/{orgId}", handler.RemoveOrganiserFromFavOrganiserEndpoint).Methods("PUT")
 	http.ListenAndServe(":9000", router)
 }
